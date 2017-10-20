@@ -1,0 +1,47 @@
+一、使用HAL的方法
+1.Native code通过hw_get_module调用获取HAL stub
+  hw_get_module(XXX_HARDWARE_MODULE_ID, (const hw_module_t **)&module)
+
+2.通过继承hw_module_methods_t的callback来打开设备
+  module->methods->open(module, XXX_HARDWARE_MODULE_ID, (struct hw_device_t **)device);
+
+3.通过继承hw_device_t的callback(回访)来控制设备
+  sXXXDevice->set_on(sXXXDevice, xxx);
+  sXXXDevice->set_off(sXXXDevice, xxx);
+
+二、编写HAL stub的方法
+1.自定义HAL结构体，编写头文件xxx.h和hardware/hardware.h，主要代码如下所示：
+struct xxx_module_t {
+  struct hw_module_t common;
+};
+struct xxx_control_device_t {
+  struct hw_device_t common;
+  int fd;/*XXX设备文件描述符*/
+  /*支持的控制APIs*/
+  int (*set_on)(struct xxx_control_device_t *dev, int32_t xxx);
+  int (*set_off)(struct xxx_control_device_t *dev, int32_t xxx);
+};
+
+2.编写文件xxx.c实现HAL stub注册功能
+3.设置xxx_module_methods继承于hw_module_methods_t,并实现对open()方法的回访
+struct hw_module_methods_t xxx_module_methods = {
+  open: xxx_device_open
+};
+
+4.使用HAL_MODULE_INFO_SYM实例化xxx_module_t,注意这个名称不可以修改
+const struct xxx_module_t HAL_MODULE_INFO_SYM = {
+  common: {
+    tag: HARDWARE_MODULE_TAG, /*需要指定为该值*/
+    version_major: 1,
+    version_minor: 0,
+    id: XXX_HARDWARE_MODULE_ID, /*指定为HAL Stub的module ID*/
+    name: "Sample XXX Stub"
+    author: "....."
+    methods: &xxx_module_methods, /*为HAL所定义的方法*/
+  }
+};
+
+5.open()是一个必须实现的回调API，用于负责申请结构体空间并填充信息，并且可以注册具体操作API接口，
+打开Linux驱动，但是因为存在多重继承关系，所以只需要对子结构体hw_device_t对象申请空间即可。
+
+6.填充具体API操作。
